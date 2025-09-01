@@ -312,15 +312,32 @@
         function loadUnityGame() {
             if (unityInstance) return; // Already loaded
             
+            // Check WebGPU support
+            if (navigator.gpu) {
+                console.log('WebGPU is available');
+                navigator.gpu.requestAdapter().then(adapter => {
+                    if (adapter) {
+                        console.log('WebGPU adapter found:', adapter.name);
+                    } else {
+                        console.warn('No WebGPU adapter found');
+                    }
+                }).catch(err => {
+                    console.warn('WebGPU adapter request failed:', err);
+                });
+            } else {
+                console.warn('WebGPU is not supported in this browser');
+            }
+            
             // Load Unity loader script
             const script = document.createElement('script');
             script.src = 'BRS-game/Build/BRS.loader.js';
             script.onload = function() {
+                console.log('Unity loader script loaded successfully');
                 createUnityInstance(document.querySelector("#unity-canvas"), {
                     arguments: [],
-                    dataUrl: "BRS-game/Build/BRS.data.br",
-                    frameworkUrl: "BRS-game/Build/BRS.framework.js.br",
-                    codeUrl: "BRS-game/Build/BRS.wasm.br",
+                    dataUrl: "BRS-game/Build/BRS.data",
+                    frameworkUrl: "BRS-game/Build/BRS.framework.js",
+                    codeUrl: "BRS-game/Build/BRS.wasm",
                     streamingAssetsUrl: "BRS-game/StreamingAssets",
                     companyName: "DefaultCompany",
                     productName: "BRS Raccoon Survivor",
@@ -330,13 +347,14 @@
                     console.log('Unity game loaded successfully');
                 }).catch((message) => {
                     console.error('Failed to load Unity game:', message);
+                    console.error('Error details:', message);
                     // Fallback to "COMING SOON" if Unity fails to load
                     gameContainer.style.display = 'none';
                     comingSoon.style.display = 'block';
                 });
             };
-            script.onerror = function() {
-                console.error('Failed to load Unity loader script');
+            script.onerror = function(error) {
+                console.error('Failed to load Unity loader script:', error);
                 // Fallback to "COMING SOON"
                 gameContainer.style.display = 'none';
                 comingSoon.style.display = 'block';

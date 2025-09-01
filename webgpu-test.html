@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGPU Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #2d5a2d; }
+        .error { background: #5a2d2d; }
+        .warning { background: #5a5a2d; }
+        canvas {
+            border: 1px solid #333;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebGPU Support Test</h1>
+    <div id="status"></div>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    
+    <script>
+        const statusDiv = document.getElementById('status');
+        const canvas = document.getElementById('canvas');
+        
+        function addStatus(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            statusDiv.appendChild(div);
+        }
+        
+        async function testWebGPU() {
+            // Check if WebGPU is available
+            if (!navigator.gpu) {
+                addStatus('❌ WebGPU is not supported in this browser', 'error');
+                return;
+            }
+            
+            addStatus('✅ WebGPU is available', 'success');
+            
+            // Check adapter
+            const adapter = await navigator.gpu.requestAdapter();
+            if (!adapter) {
+                addStatus('❌ No WebGPU adapter found', 'error');
+                return;
+            }
+            
+            addStatus(`✅ WebGPU adapter: ${adapter.name}`, 'success');
+            
+            // Check device
+            const device = await adapter.requestDevice();
+            if (!device) {
+                addStatus('❌ Failed to create WebGPU device', 'error');
+                return;
+            }
+            
+            addStatus('✅ WebGPU device created successfully', 'success');
+            
+            // Get context
+            const context = canvas.getContext('webgpu');
+            if (!context) {
+                addStatus('❌ Failed to get WebGPU context from canvas', 'error');
+                return;
+            }
+            
+            addStatus('✅ WebGPU context obtained', 'success');
+            
+            // Configure swap chain
+            const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+            context.configure({
+                device: device,
+                format: canvasFormat,
+                alphaMode: 'premultiplied',
+            });
+            
+            addStatus(`✅ Canvas configured with format: ${canvasFormat}`, 'success');
+            
+            // Create a simple render pipeline
+            const shaderModule = device.createShaderModule({
+                code: `
+                    @vertex
+                    fn vertexMain(@builtin(vertex_index) vertexIndex : u32) -> @builtin(position) vec4<f32> {
+                        var pos = array<vec2<f32>, 3>(
+                            vec2<f32>( 0.0,  0.5),
+                            vec2<f32>(-0.5, -0.5),
+                            vec2<f32>( 0.5, -0.5)
+                        );
+                        return vec4<f32>(pos[vertexIndex], 0.0, 1.0);
+                    }
+                    
+                    @fragment
+                    fn fragmentMain() -> @location(0) vec4<f32> {
+                        return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+                    }
+                `
+            });
+            
+            const pipeline = device.createRenderPipeline({
+                layout: 'auto',
+                vertex: {
+                    module: shaderModule,
+                    entryPoint: 'vertexMain',
+                },
+                fragment: {
+                    module: shaderModule,
+                    entryPoint: 'fragmentMain',
+                    targets: [{
+                        format: canvasFormat,
+                    }],
+                },
+            });
+            
+            addStatus('✅ Render pipeline created', 'success');
+            
+            // Render a frame
+            const commandEncoder = device.createCommandEncoder();
+            const renderPass = commandEncoder.beginRenderPass({
+                colorAttachments: [{
+                    view: context.getCurrentTexture().createView(),
+                    clearValue: { r: 0.1, g: 0.1, b: 0.1, a: 1.0 },
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                }],
+            });
+            
+            renderPass.setPipeline(pipeline);
+            renderPass.draw(3, 1, 0, 0);
+            renderPass.end();
+            
+            device.queue.submit([commandEncoder.finish()]);
+            
+            addStatus('✅ Triangle rendered successfully!', 'success');
+            addStatus('🎉 WebGPU is working correctly!', 'success');
+        }
+        
+        // Run the test
+        testWebGPU().catch(error => {
+            addStatus(`❌ Error during WebGPU test: ${error.message}`, 'error');
+            console.error('WebGPU test error:', error);
+        });
+    </script>
+</body>
+</html>
