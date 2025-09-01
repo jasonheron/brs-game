@@ -1,45 +1,369 @@
 <!DOCTYPE html>
-<html lang="en-us">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity Web Player | BRS Raccoon Survivor</title>
-  </head>
-  <body style="text-align: center; padding: 0; border: 0; margin: 0;">
-    <canvas id="unity-canvas" width=960 height=600 tabindex="-1" style="width: 960px; height: 600px; background: #231F20"></canvas>
-    <script src="Build/BRS.loader.js"></script>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Breakroom Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Montserrat', Arial, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .video-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            display: flex;
+            align-items: stretch; /* ensure gradient fills full height */
+        }
+
+        .gradient-side {
+            width: 100%;
+            height: 100%;
+            /* Smooth full-screen gradient, darker at left, soft fade to right */
+            background:
+                linear-gradient( to right,
+                    rgba(0, 40, 0, 0.92) 0%,
+                    rgba(0, 55, 0, 0.88) 18%,
+                    rgba(0, 65, 0, 0.72) 36%,
+                    rgba(0, 70, 0, 0.48) 54%,
+                    rgba(0, 70, 0, 0.28) 72%,
+                    rgba(0, 70, 0, 0.10) 86%,
+                    rgba(0, 70, 0, 0.0) 100%
+                );
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            padding-left: 6vw;
+            padding-right: 6vw;
+        }
+
+        .content {
+            max-width: 720px;
+            width: 100%;
+        }
+
+        .welcome-text {
+            color: white;
+            font-size: clamp(2.2rem, 6.8vw, 5.6rem);
+            font-weight: bold;
+            margin-bottom: 2rem;
+            line-height: 1;
+            font-size: 4em;
+        }
+
+        .subtext {
+            color: rgba(255,255,255,0.85);
+            font-size: clamp(0.95rem, 1.8vw, 1.2rem);
+            margin-bottom: 1.8rem;
+        }
+
+        .play-button {
+            background: transparent;
+            border: 2px solid white;
+            color: white;
+            padding: 14px 28px 14px 24px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .play-button .icon {
+            width: 0;
+            height: 0;
+            border-left: 10px solid #fff;
+            border-top: 7px solid transparent;
+            border-bottom: 7px solid transparent;
+        }
+
+        .play-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.05);
+        }
+
+        .play-button:active {
+            transform: scale(0.95);
+        }
+
+        .game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            z-index: 3;
+            pointer-events: none; /* allow clicks to pass through to unity */
+        }
+
+        .hidden { display: none !important; }
+
+        /* Fade only for the CTA overlay */
+        .fade-out { animation: fadeOut 400ms ease forwards; }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+        /* 8-bit font for COMING SOON using a pixel-style fallback */
+        @font-face {
+            font-family: 'PressStart2P';
+            src: local('Press Start 2P'), local('PressStart2P');
+            unicode-range: U+000-5FF; /* fallback only if installed */
+        }
+        .game-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 4;
+            display: none;
+            width: 960px;
+            height: 600px;
+            max-width: 90vw;
+            max-height: 60vh;
+        }
+
+        .coming-soon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 4;
+            color: #00ffa6;
+            text-align: center;
+            letter-spacing: 2px;
+            font-family: 'PressStart2P', 'Courier New', monospace;
+            font-size: 2rem;
+            text-transform: uppercase;
+            display: none;
+            pointer-events: none;
+        }
+
+        .restart-button {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            z-index: 5;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00ffa6;
+            color: #00ffa6;
+            padding: 12px 24px;
+            font-family: 'PressStart2P', 'Courier New', monospace;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-radius: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .restart-button:hover {
+            background: rgba(0, 255, 166, 0.1);
+            transform: scale(1.05);
+        }
+
+        /* Responsive text sizing */
+        @media (max-width: 900px) {
+            .welcome-text { font-size: 2rem; }
+        }
+        @media (max-width: 600px) {
+            .welcome-text { font-size: 1.6rem; }
+            .play-button { padding: 12px 26px; font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Static video background -->
+        <video class="video-background" id="staticVideo" autoplay muted loop playsinline aria-label="ambient static video background">
+            <source src="static.mp4" type="video/mp4">
+        </video>
+
+        <!-- Play video (hidden initially) -->
+        <video class="video-background hidden" id="playVideo" muted playsinline aria-label="intro play video">
+            <source src="play.mp4" type="video/mp4">
+        </video>
+
+        <!-- Game overlay image (hidden initially) -->
+        <img class="game-overlay hidden" id="gameOverlay" src="game-overlay.png" alt="Game Overlay">
+        <div class="game-container" id="gameContainer">
+            <canvas id="unity-canvas" width="960" height="600" tabindex="-1" style="width: 100%; height: 100%; background: #231F20; border-radius: 8px;"></canvas>
+        </div>
+        <div class="coming-soon" id="comingSoon">COMING SOON</div>
+        <button class="restart-button" id="restartButton">RESTART</button>
+
+        <!-- Gradient overlay with text and button -->
+        <div class="overlay" id="overlay">
+            <div class="gradient-side">
+                <div class="content">
+                    <div class="welcome-text">
+                        Welcome to<br>the breakroom
+                    </div>
+                    <div class="subtext">Take a breather. When you’re ready, press play.</div>
+                    <button class="play-button" id="playButton" aria-label="Play"><span class="icon"></span> PLAY</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
+        const staticVideo = document.getElementById('staticVideo');
+        const playVideo = document.getElementById('playVideo');
+        const gameOverlay = document.getElementById('gameOverlay');
+        const overlay = document.getElementById('overlay');
+        const playButton = document.getElementById('playButton');
+        const comingSoon = document.getElementById('comingSoon');
+        const restartButton = document.getElementById('restartButton');
+        const gameContainer = document.getElementById('gameContainer');
+        let unityInstance = null;
 
-        var canvas = document.querySelector("#unity-canvas");
-        canvas.style.width = "100%";
-        canvas.style.height = "100%";
-        canvas.style.position = "fixed";
+        playButton.addEventListener('click', async function() {
+            // Fade the CTA overlay out, then hide it
+            overlay.classList.add('fade-out');
+            overlay.addEventListener('animationend', function onFade() {
+                overlay.removeEventListener('animationend', onFade);
+                overlay.classList.add('hidden');
+            });
 
-        document.body.style.textAlign = "left";
+            // Swap videos without fading
+            staticVideo.classList.add('hidden');
+            playVideo.classList.remove('hidden');
+            try {
+                playVideo.muted = false;
+                const p = playVideo.play();
+                if (p && typeof p.then === 'function') {
+                    p.catch(() => { playVideo.muted = true; playVideo.play(); });
+                }
+            } catch (_) {}
 
-      }
+            // Freeze on the last frame instead of switching to image
+            const freezeOnLastFrame = () => {
+                if (!isFinite(playVideo.duration)) return;
+                const threshold = Math.max(0, playVideo.duration - 0.05);
+                if (playVideo.currentTime >= threshold) {
+                    playVideo.pause();
+                    // Nudge to the very end to keep last frame drawn
+                    playVideo.currentTime = Math.max(0, playVideo.duration - 0.001);
+                    playVideo.removeEventListener('timeupdate', freezeOnLastFrame);
+                    
+                    // Show Unity game instead of "COMING SOON"
+                    gameContainer.style.display = 'block';
+                    loadUnityGame();
+                    restartButton.style.display = 'block';
+                }
+            };
+            playVideo.addEventListener('timeupdate', freezeOnLastFrame);
+        });
 
-      createUnityInstance(document.querySelector("#unity-canvas"), {
-        arguments: [],
-        dataUrl: "Build/BRS.data.br",
-        frameworkUrl: "Build/BRS.framework.js.br",
-        codeUrl: "Build/BRS.wasm.br",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "DefaultCompany",
-        productName: "BRS Raccoon Survivor",
-        productVersion: "1.0",
-        // matchWebGLToCanvasSize: false, // Uncomment this to separately control WebGL canvas render size and DOM element size.
-        // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
-      }).then((unityInstance) => {
-      }).catch((message) => {
-        alert(message);
-      });
+        // Ensure videos are loaded
+        staticVideo.addEventListener('loadeddata', function() {
+            console.log('Static video loaded');
+        });
+
+        playVideo.addEventListener('loadeddata', function() {
+            console.log('Play video loaded');
+        });
+
+        // Handle video loading errors
+        staticVideo.addEventListener('error', function() {
+            console.error('Error loading static video');
+        });
+
+        playVideo.addEventListener('error', function() {
+            console.error('Error loading play video');
+        });
+
+        // Load Unity game
+        function loadUnityGame() {
+            if (unityInstance) return; // Already loaded
+            
+            // Load Unity loader script
+            const script = document.createElement('script');
+            script.src = 'BRS-game/Build/BRS.loader.js';
+            script.onload = function() {
+                createUnityInstance(document.querySelector("#unity-canvas"), {
+                    arguments: [],
+                    dataUrl: "BRS-game/Build/BRS.data.br",
+                    frameworkUrl: "BRS-game/Build/BRS.framework.js.br",
+                    codeUrl: "BRS-game/Build/BRS.wasm.br",
+                    streamingAssetsUrl: "BRS-game/StreamingAssets",
+                    companyName: "DefaultCompany",
+                    productName: "BRS Raccoon Survivor",
+                    productVersion: "1.0",
+                }).then((instance) => {
+                    unityInstance = instance;
+                    console.log('Unity game loaded successfully');
+                }).catch((message) => {
+                    console.error('Failed to load Unity game:', message);
+                    // Fallback to "COMING SOON" if Unity fails to load
+                    gameContainer.style.display = 'none';
+                    comingSoon.style.display = 'block';
+                });
+            };
+            script.onerror = function() {
+                console.error('Failed to load Unity loader script');
+                // Fallback to "COMING SOON"
+                gameContainer.style.display = 'none';
+                comingSoon.style.display = 'block';
+            };
+            document.head.appendChild(script);
+        }
+
+        // Restart button functionality
+        restartButton.addEventListener('click', function() {
+            // Reset to initial state
+            overlay.classList.remove('hidden', 'fade-out');
+            staticVideo.classList.remove('hidden');
+            playVideo.classList.add('hidden');
+            comingSoon.style.display = 'none';
+            gameContainer.style.display = 'none';
+            restartButton.style.display = 'none';
+            
+            // Quit Unity instance if it exists
+            if (unityInstance) {
+                unityInstance.Quit();
+                unityInstance = null;
+            }
+            
+            // Restart static video
+            staticVideo.currentTime = 0;
+            staticVideo.play();
+        });
     </script>
-  </body>
+</body>
 </html>
